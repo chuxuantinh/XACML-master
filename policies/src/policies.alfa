@@ -1,0 +1,260 @@
+namespace com.glispa {
+		
+	policyset publisherCanRunCampaign {
+		target clause Attributes.actionId=="publisher-can-run-campaign"
+		apply firstApplicable
+		
+		/* Deny if campaign is inactive */
+		policy categoryIsInactive {
+			apply firstApplicable
+						
+			rule isInactive {
+				deny
+				condition not(booleanOneAndOnly(campaign.active[issuer="com:glispa:pip"]))
+				on deny {
+	                obligation responseMessage {
+	                    response.message = "Campaign is inactive"
+	                }
+	            }
+			}
+		}
+		
+		/* Deny if publisher is inactive */
+		policy publisherIsInactive {
+			apply firstApplicable
+						
+			rule isInactive {
+				deny
+				condition not(booleanOneAndOnly(publisher.active[issuer="com:glispa:pip"]))
+				on deny {
+	                obligation responseMessage {
+	                    response.message = "Publisher is inactive"
+	                }
+	            }
+			}
+		}
+		
+		/* Blacklisted attributes have priority (so if any campaign's attribute is blacklisted this will produce a deny).
+		 * Otherwise, if there is no attribute blacklisted any attributed whitelisted will be applied, producing a permit.
+		 * In case none of these apply, it should return a NotApplicable
+		 */
+		policyset whitelistedOrBlacklisted {
+			apply orderedDenyOverrides
+
+			policy byCampaign {
+				apply orderedDenyOverrides
+				
+				/* Permit if publisher can run any campaign */
+				rule canRunAnyCampaign {
+					permit
+					condition publisher.allCampaigns[issuer="com:glispa:pip"]==true
+				}
+							
+				/* Deny if the campaign is in blacklist */
+				rule isCampaignBlacklisted {
+					target clause publisher.allCampaigns[issuer="com:glispa:pip"]==true
+					deny
+					condition stringIsIn(
+						stringOneAndOnly(Attributes.resourceId), 
+						publisher.blacklistedCampaigns[issuer="com:glispa:pip"]
+					)					
+				}
+				
+				/* Permit if the campaign is in whitelist */
+				rule isCampaignWhitelisted {
+					target clause publisher.allCampaigns[issuer="com:glispa:pip"]==false
+					permit
+					condition stringIsIn(
+						stringOneAndOnly(Attributes.resourceId), 
+						publisher.whitelistedCampaigns[issuer="com:glispa:pip"]
+					)					
+				}
+				on deny {
+	                obligation responseMessage {
+	                    response.message = stringConcatenate("Campaign is denied: ", stringOneAndOnly(Attributes.resourceId))
+	                }
+	            }
+	            on permit {
+	                obligation responseMessage {
+	                    response.message = stringConcatenate("Campaign is allowed: ", stringOneAndOnly(Attributes.resourceId))
+	                }
+	            }
+			}
+			
+			
+			policy byCategory {
+				apply orderedDenyOverrides
+				/* Permit if publisher can run any campaign's category */
+				rule canRunAnyCategory {
+					permit
+					condition publisher.allCategories[issuer="com:glispa:pip"]==true
+				}
+								
+				/* Deny if the campaign's category is in blacklist */
+				rule isCategoryBlacklisted {
+					target clause publisher.allCategories[issuer="com:glispa:pip"]==true
+					deny
+					condition stringIsIn(
+						stringOneAndOnly(campaign.cat[issuer="com:glispa:pip"]), 
+						publisher.blacklistedCategories[issuer="com:glispa:pip"]
+					)
+				}			
+					
+				/* Permit if the campaign's category is in whitelist */
+				rule isCategoryWhitelisted {
+				target clause publisher.allCategories[issuer="com:glispa:pip"]==false
+					permit
+					condition stringIsIn(
+						stringOneAndOnly(campaign.cat[issuer="com:glispa:pip"]), 
+						publisher.whitelistedCategories[issuer="com:glispa:pip"]
+					)
+				}	
+				
+				on deny {
+	                obligation responseMessage {
+	                    response.message = stringConcatenate("Campaign's category is denied: ", stringOneAndOnly(campaign.cat[issuer="com:glispa:pip"]))
+	                }
+	            }
+	            on permit {
+	                obligation responseMessage {
+	                    response.message = stringConcatenate("Campaign's category is allowed: ", stringOneAndOnly(campaign.cat[issuer="com:glispa:pip"]))
+	                }
+	            }
+			}
+			
+			policy byCountry {
+				apply orderedDenyOverrides
+				
+				/* Permit if publisher can run any campaign's country */
+				rule canRunAnyCountry {
+					permit
+					condition publisher.allCountries[issuer="com:glispa:pip"]==true
+				}	
+				
+				/* Deny if the campaign's country is in blacklist */
+				rule isCountryBlacklisted {
+					target clause publisher.allCountries[issuer="com:glispa:pip"]==true
+					deny
+					condition stringIsIn(
+						stringOneAndOnly(campaign.country[issuer="com:glispa:pip"]), 
+						publisher.blacklistedCountries[issuer="com:glispa:pip"]
+					)
+				}			
+				
+				/* Permit if the campaign's country is in whitelist */
+				rule isCountryWhitelisted {
+					target clause publisher.allCountries[issuer="com:glispa:pip"]==false
+					permit
+					condition stringIsIn(
+						stringOneAndOnly(campaign.country[issuer="com:glispa:pip"]), 
+						publisher.whitelistedCountries[issuer="com:glispa:pip"]
+					)
+				}				
+				
+				on deny {
+	                obligation responseMessage {
+	                    response.message = stringConcatenate("Campaign's country is denied: ", stringOneAndOnly(campaign.country[issuer="com:glispa:pip"]))
+	                }
+	            }
+	            on permit {
+	                obligation responseMessage {
+	                    response.message = stringConcatenate("Campaign's country is allowed: ", stringOneAndOnly(campaign.country[issuer="com:glispa:pip"]))
+	                }
+	            }
+			}			
+		}
+		
+		/* If nothing is applicable, deny */
+		policy default {
+			apply firstApplicable
+			rule default {
+				deny
+				on deny {
+		            obligation responseMessage {
+		                response.message = "Publisher has no permission to run this campaign"
+		            }
+		        }
+			}
+		}	
+	}
+	
+	obligation responseMessage = "obligation.responseMessage"
+	category response = "response"
+	
+	namespace response {
+		attribute message {
+			id = "response:message"
+	        type = string
+	        category = response
+		}
+	}
+	namespace campaign {
+		attribute cat {
+	        id = "resource:campaign:category"
+	        type = string
+	        category = resourceCat
+	    }
+		attribute country {
+	        id = "resource:campaign:country"
+	        type = string
+	        category = resourceCat
+	    }
+		attribute active {
+	        id = "resource:campaign:active"
+	        type = boolean
+	        category = resourceCat
+	    }
+	}
+	namespace publisher {
+		attribute active {
+	        id = "subject:publisher:active"
+	        type = boolean
+	        category = subjectCat
+	    }
+		attribute allCampaigns {
+	        id = "subject:publisher:all-campaigns"
+	        type = boolean
+	        category = subjectCat
+	    }
+		attribute allCountries {
+	        id = "subject:publisher:all-countries"
+	        type = boolean
+	        category = subjectCat
+	    }
+		attribute allCategories {
+	        id = "subject:publisher:all-categories"
+	        type = boolean
+	        category = subjectCat
+	    }
+		attribute whitelistedCampaigns {
+	        id = "subject:publisher:whitelisted-campaigns"
+	        type = string
+	        category = subjectCat
+	    }
+		attribute whitelistedCountries {
+	        id = "subject:publisher:whitelisted-countries"
+	        type = string
+	        category = subjectCat
+	    }
+		attribute whitelistedCategories {
+	        id = "subject:publisher:whitelisted-categories"
+	        type = string
+	        category = subjectCat
+	    }
+		attribute blacklistedCampaigns {
+	        id = "subject:publisher:blacklisted-campaigns"
+	        type = string
+	        category = subjectCat
+	    }
+		attribute blacklistedCountries {
+	        id = "subject:publisher:blacklisted-countries"
+	        type = string
+	        category = subjectCat
+	    }
+		attribute blacklistedCategories {
+	        id = "subject:publisher:blacklisted-categories"
+	        type = string
+	        category = subjectCat
+	    }
+	}
+}

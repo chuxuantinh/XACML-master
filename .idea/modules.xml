@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/att-xacml.iml" filepath="$PROJECT_DIR$/att-xacml.iml" />
+      <module fileurl="file://$PROJECT_DIR$/XACML/xacml.iml" filepath="$PROJECT_DIR$/XACML/xacml.iml" />
+      <module fileurl="file://$PROJECT_DIR$/XACML-PDP/xacml-pdp.iml" filepath="$PROJECT_DIR$/XACML-PDP/xacml-pdp.iml" />
+      <module fileurl="file://$PROJECT_DIR$/XACML-TEST/xacml-test.iml" filepath="$PROJECT_DIR$/XACML-TEST/xacml-test.iml" />
+    </modules>
+  </component>
+</project>
